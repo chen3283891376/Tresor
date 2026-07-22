@@ -95,6 +95,8 @@ pub enum VaultError {
     MemLock(std::io::Error),
     #[error("用户取消密钥保存")]
     UserCancelSave,
+    #[error("网络出错")]
+    Network(String),
 }
 
 impl From<std::io::Error> for VaultError {
@@ -114,15 +116,20 @@ impl From<InvalidLength> for VaultError {
 }
 
 /// 设置全局激活主密钥
-pub fn set_active_master_key(pwd_buf: &[u8], new_key: &[u8]) -> Result<(), Box<dyn std::error::Error>> {
-    let mut salt = [0u8; 16];
-    getrandom::fill(&mut salt).map_err(|e| e.to_string())?;
-    let key = VaultMasterKey::derive(pwd_buf, new_key, &salt)
+/// salt：新建金库/加载金库从vault文件meta读取，外部传入，不再内部随机
+pub fn set_active_master_key(
+    pwd_buf: &[u8],
+    key_file_data: &[u8],
+    salt: &[u8; 16],
+) -> Result<(), Box<dyn std::error::Error>> {
+    let key = VaultMasterKey::derive(pwd_buf, key_file_data, salt)
         .map_err(|e| e.to_string())?;
 
     let mut lock = ACTIVE_VAULT_KEY.write()?;
+    if let Some(old_key) = lock.take() {
+        drop(old_key);
+    }
     *lock = Some(key);
-
     Ok(())
 }
 
@@ -133,6 +140,7 @@ pub fn get_active_master_key() -> Result<VaultMasterKey, String> {
 }
 
 /// 清空全局主密钥（登出）
+#[tauri::command]
 pub fn clear_active_master_key() {
     let mut lock = ACTIVE_VAULT_KEY.write().unwrap();
     lock.take();

@@ -1,67 +1,53 @@
 import { useState, useMemo } from 'react';
 import { toast } from 'sonner';
-
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Field, FieldError, FieldLabel } from './ui/field';
 import { Label } from '@/components/ui/label';
-import { invoke } from '@tauri-apps/api/core';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { PasswordInput } from './PasswordInput';
+import { useVaultStore } from '@/store/vaultStore';
 
-export function LoginPage({ onLoginSuccess }: { onLoginSuccess: () => void }) {
+export function LoginPage() {
     const [password, setPassword] = useState('');
-    const [isRegister, setIsRegister] = useState(false);
-    const [loading, setLoading] = useState(false);
-    const [hasSelectedKey, setHasSelectedKey] = useState<boolean>(false);
-    const [fileErrMsg, setFileErrMsg] = useState('');
+    const [registerPassword, setRegisterPassword] = useState('');
+    const [confirmPassword, setConfirmPassword] = useState('');
+    const {
+        registerVault,
+        unlockVault,
+        keyFilePath,
+        vaultFilePath,
+        isLoading,
+        pickKeyFile,
+        clearKeyFile,
+        openVaultFilePicker,
+        saveVaultFilePicker,
+    } = useVaultStore();
 
     const passwordError = useMemo(() => {
         if (password.length > 0 && password.length < 8) return '密码长度至少 8 位';
         return '';
     }, [password]);
 
-    const pickKeyFile = async () => {
-        setFileErrMsg('');
-        try {
-            const ok: boolean = await invoke('open_key_file_picker');
-            setHasSelectedKey(ok);
-            if (!ok) setFileErrMsg('未选择有效 .key 密钥文件');
-        } catch (err: any) {
-            setFileErrMsg(`文件选择失败: ${err}`);
-            setHasSelectedKey(false);
-        }
-    };
-
-    const clearSelectedKey = async () => {
-        await invoke('clear_stored_key_path');
-        setHasSelectedKey(false);
-        setFileErrMsg('');
-    };
+    const registerPasswordError = useMemo(() => {
+        if (registerPassword.length > 0 && registerPassword.length < 8) return '密码长度至少 8 位';
+        if (confirmPassword && registerPassword !== confirmPassword) return '两次输入的密码不一致';
+        return '';
+    }, [registerPassword, confirmPassword]);
 
     const handleRegister = async () => {
-        if (!password) {
-            toast.info('请设置主密码');
+        if (!registerPassword || registerPassword.length < 8) {
+            toast.error('请设置至少 8 位的密码');
             return;
         }
-        if (password.length < 8) {
-            toast.error('密码长度至少 8 位');
+        if (registerPassword !== confirmPassword) {
+            toast.error('两次输入的密码不一致');
             return;
         }
 
-        setLoading(true);
-        try {
-            await invoke('register_vault', { userPwd: password });
-            toast.success('密码库创建完成！已弹出窗口保存密钥到U盘，请妥善保管 vault.key');
-            setPassword('');
-        } catch (err: any) {
-            if (String(err).includes('用户取消密钥保存')) {
-                toast.info('未保存密钥，创建流程已取消');
-            } else {
-                toast.error(`创建密码库失败: ${err}`);
-            }
-        } finally {
-            setLoading(false);
-        }
+        await registerVault(registerPassword);
+        setRegisterPassword('');
+        setConfirmPassword('');
     };
 
     const handleLogin = async () => {
@@ -69,98 +55,135 @@ export function LoginPage({ onLoginSuccess }: { onLoginSuccess: () => void }) {
             toast.info('请输入主密码');
             return;
         }
-        if (!hasSelectedKey) {
-            toast.info('必须选择注册时保存到U盘的 .key 私钥文件');
+        if (!keyFilePath) {
+            toast.info('请先选择 .key 密钥文件');
             return;
         }
 
-        setLoading(true);
-        try {
-            const ok = await invoke<boolean>('unlock_vault', { userPwd: password });
-            if (ok) {
-                toast.success('密码库解锁成功');
-                onLoginSuccess();
-            } else {
-                setFileErrMsg('解锁失败，请检查主密码和U盘密钥分片是否正确');
-            }
-        } catch (err: any) {
-            toast.error(`解锁失败: ${err}`);
-        } finally {
-            setPassword('');
-            setLoading(false);
-        }
-    };
-
-    // 切换注册/登录时，清空密钥选择状态
-    const toggleMode = () => {
-        setIsRegister(!isRegister);
-        clearSelectedKey().then();
+        await unlockVault(password);
+        setPassword('');
     };
 
     return (
-        <Dialog open={true} modal>
-            <DialogContent className="sm:max-w-lg">
-                <DialogHeader>
-                    <DialogTitle>
-                        {isRegister ? '创建全新密码库（仅设置主密码）' : '解锁密码库（主密码+U盘密钥分片）'}
-                    </DialogTitle>
-                </DialogHeader>
+        <div className="min-h-screen flex items-center justify-center p-4">
+            <Card className="w-full max-w-lg">
+                <CardHeader>
+                    <CardTitle className="text-center text-2xl">Tresor 密码管理器</CardTitle>
+                </CardHeader>
+                <CardContent>
+                    <Tabs defaultValue="login" className="mt-2">
+                        <TabsList className="grid w-full grid-cols-2">
+                            <TabsTrigger value="login">解锁金库</TabsTrigger>
+                            <TabsTrigger value="register">新建金库</TabsTrigger>
+                        </TabsList>
 
-                <form onSubmit={e => e.preventDefault()} autoComplete="on">
-                    <div className="space-y-5 py-4">
-                        <Field data-invalid={!!passwordError}>
-                            <FieldLabel>主密码</FieldLabel>
-                            <Input
-                                type="password"
-                                placeholder="至少8位字符"
-                                autoComplete={isRegister ? 'new-password' : 'current-password'}
-                                value={password}
-                                onChange={e => setPassword(e.target.value)}
-                                disabled={loading}
-                            />
-                            <FieldError>{passwordError}</FieldError>
-                        </Field>
-
-                        {!isRegister && (
+                        <TabsContent value="login" className="space-y-4 mt-4">
                             <div className="space-y-2">
-                                <Label className="font-medium">U盘私钥分片文件</Label>
+                                <Label className="font-medium">密钥文件</Label>
                                 <div className="flex items-center gap-2 flex-wrap">
-                                    <Button variant="outline" type="button" onClick={pickKeyFile} disabled={loading}>
-                                        打开系统文件选择器
+                                    <Button variant="outline" type="button" onClick={pickKeyFile} disabled={isLoading}>
+                                        选择 .key 密钥文件
                                     </Button>
-                                    {hasSelectedKey && (
-                                        <div className="flex items-center gap-2">
-                                            <span className="text-sm text-slate-600">已选择密钥文件</span>
+                                    {keyFilePath && (
+                                        <>
+                                            <span className="text-sm text-muted-foreground">已选择密钥文件</span>
                                             <Button
                                                 variant="ghost"
                                                 size="sm"
                                                 type="button"
-                                                onClick={clearSelectedKey}
-                                                disabled={loading}
+                                                onClick={clearKeyFile}
+                                                disabled={isLoading}
                                             >
                                                 移除
                                             </Button>
-                                        </div>
+                                        </>
                                     )}
                                 </div>
-                                {fileErrMsg && <p className="text-sm text-destructive">{fileErrMsg}</p>}
                             </div>
-                        )}
 
-                        <Button
-                            className="w-full"
-                            onClick={isRegister ? handleRegister : handleLogin}
-                            disabled={loading}
-                        >
-                            {loading ? '处理中...' : isRegister ? '创建密码库并导出密钥分片' : '解锁密码库'}
-                        </Button>
+                            <div className="space-y-2">
+                                <Label className="font-medium">金库文件</Label>
+                                <div className="flex items-center gap-2 flex-wrap">
+                                    <Button
+                                        variant="outline"
+                                        type="button"
+                                        onClick={openVaultFilePicker}
+                                        disabled={isLoading}
+                                    >
+                                        选择金库文件
+                                    </Button>
+                                    {vaultFilePath && (
+                                        <span className="text-sm text-muted-foreground truncate max-w-xs">
+                                            {vaultFilePath}
+                                        </span>
+                                    )}
+                                </div>
+                            </div>
 
-                        <Button variant="ghost" className="w-full text-sm" onClick={toggleMode} disabled={loading}>
-                            {isRegister ? '已有密码库？切换登录' : '首次使用？注册新密码库'}
-                        </Button>
-                    </div>
-                </form>
-            </DialogContent>
-        </Dialog>
+                            <Field data-invalid={!!passwordError}>
+                                <FieldLabel>主密码</FieldLabel>
+                                <PasswordInput
+                                    value={password}
+                                    onChange={setPassword}
+                                    placeholder="请输入主密码"
+                                    disabled={isLoading}
+                                />
+                                <FieldError>{passwordError}</FieldError>
+                            </Field>
+
+                            <Button className="w-full" onClick={handleLogin} disabled={isLoading}>
+                                {isLoading ? '解锁中...' : '解锁金库'}
+                            </Button>
+                        </TabsContent>
+
+                        <TabsContent value="register" className="space-y-4 mt-4">
+                            <Field data-invalid={!!registerPasswordError}>
+                                <FieldLabel>设置主密码</FieldLabel>
+                                <PasswordInput
+                                    value={registerPassword}
+                                    onChange={setRegisterPassword}
+                                    placeholder="至少 8 位字符"
+                                    disabled={isLoading}
+                                />
+                            </Field>
+
+                            <Field data-invalid={!!registerPasswordError}>
+                                <FieldLabel>确认主密码</FieldLabel>
+                                <PasswordInput
+                                    value={confirmPassword}
+                                    onChange={setConfirmPassword}
+                                    placeholder="再次输入密码"
+                                    disabled={isLoading}
+                                />
+                                <FieldError>{registerPasswordError}</FieldError>
+                            </Field>
+
+                            <div className="space-y-2">
+                                <Label className="font-medium">金库文件 (可选)</Label>
+                                <div className="flex items-center gap-2 flex-wrap">
+                                    <Button
+                                        variant="outline"
+                                        type="button"
+                                        onClick={saveVaultFilePicker}
+                                        disabled={isLoading}
+                                    >
+                                        设置金库文件位置
+                                    </Button>
+                                    {vaultFilePath && (
+                                        <span className="text-sm text-muted-foreground truncate max-w-xs">
+                                            {vaultFilePath}
+                                        </span>
+                                    )}
+                                </div>
+                            </div>
+
+                            <Button className="w-full" onClick={handleRegister} disabled={isLoading}>
+                                {isLoading ? '创建中...' : '创建新金库'}
+                            </Button>
+                        </TabsContent>
+                    </Tabs>
+                </CardContent>
+            </Card>
+        </div>
     );
 }
