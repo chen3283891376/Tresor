@@ -18,6 +18,7 @@ interface PasswordState {
     isLoading: boolean;
     refreshPreviewList: () => Promise<void>;
     refreshPasswordLeaks: () => Promise<void>;
+    refreshAll: () => Promise<void>;
     createEntry: (params: NewEntryParams) => Promise<void>;
     getEntryDetail: (entryId: string) => Promise<void>;
     updateEntry: (params: UpdateEntryParams) => Promise<void>;
@@ -35,7 +36,6 @@ export const usePasswordStore = create<PasswordState>((set, get) => ({
     setLoading: (loading: boolean) => set({ isLoading: loading }),
 
     refreshPreviewList: async () => {
-        set({ isLoading: true });
         try {
             const list = await loadVaultPreview();
             set({ previewList: list || [] });
@@ -43,13 +43,10 @@ export const usePasswordStore = create<PasswordState>((set, get) => ({
             toast.error(`加载密码列表失败: ${err}`);
             set({ previewList: [] });
             await useVaultStore.getState().lockVault();
-        } finally {
-            set({ isLoading: false });
         }
     },
 
     refreshPasswordLeaks: async () => {
-        set({ isLoading: true });
         try {
             const list = await loadPasswordLeaks();
             set({ passwordLeaks: list || [] });
@@ -57,6 +54,13 @@ export const usePasswordStore = create<PasswordState>((set, get) => ({
             toast.error(`加载密码泄露记录失败: ${err}`);
             await useVaultStore.getState().lockVault();
             set({ passwordLeaks: [] });
+        }
+    },
+
+    refreshAll: async () => {
+        set({ isLoading: true });
+        try {
+            await Promise.all([get().refreshPreviewList(), get().refreshPasswordLeaks()]);
         } finally {
             set({ isLoading: false });
         }
@@ -67,8 +71,7 @@ export const usePasswordStore = create<PasswordState>((set, get) => ({
         try {
             await createPasswordEntry(params.account, params.password, params.url, params.note);
             toast.success('密码记录创建成功');
-            await get().refreshPreviewList();
-            await get().refreshPasswordLeaks();
+            await get().refreshAll();
         } catch (err: any) {
             await useVaultStore.getState().lockVault();
             toast.error(`创建密码记录失败: ${err}`);
@@ -95,7 +98,7 @@ export const usePasswordStore = create<PasswordState>((set, get) => ({
         try {
             await updateEntry(params.entry_id, params.account, params.password, params.url, params.note);
             toast.success('密码记录更新成功');
-            await get().refreshPreviewList();
+            await get().refreshAll();
         } catch (err: any) {
             toast.error(`更新密码记录失败: ${err}`);
         } finally {
@@ -108,7 +111,7 @@ export const usePasswordStore = create<PasswordState>((set, get) => ({
         try {
             await deleteEntry(entryId);
             toast.success('密码记录删除成功');
-            await get().refreshPreviewList();
+            await get().refreshAll();
         } catch (err: any) {
             toast.error(`删除密码记录失败: ${err}`);
         } finally {
