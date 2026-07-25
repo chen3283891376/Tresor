@@ -14,6 +14,7 @@ use winapi::{ctypes::c_void, um::memoryapi::{VirtualLock, VirtualUnlock}};
 // 全局活跃主密钥单例
 pub static ACTIVE_VAULT_KEY: Lazy<RwLock<Option<VaultMasterKey>>> =
     Lazy::new(|| RwLock::new(None));
+pub static NEED_PASTE_PWD: Lazy<RwLock<Option<String>>> = Lazy::new(|| RwLock::new(None));
 
 /// 金库主密钥：内存锁定 + 自动释放锁+清零
 #[derive(Zeroize, Clone)]
@@ -143,5 +144,22 @@ pub fn get_active_master_key() -> Result<VaultMasterKey, String> {
 #[tauri::command]
 pub fn clear_active_master_key() {
     let mut lock = ACTIVE_VAULT_KEY.write().unwrap();
+    lock.take();
+}
+
+pub fn set_need_paste_pwd(pwd: String) -> Result<(), Box<dyn std::error::Error>> {
+    let mut lock = NEED_PASTE_PWD.write()?;
+    if let Some(old_pwd) = lock.take() {
+        drop(old_pwd);
+    }
+    *lock = Some(pwd);
+    Ok(())
+}
+pub fn get_need_paste_pwd() -> Result<String, Box<dyn std::error::Error>> {
+    let lock = NEED_PASTE_PWD.read()?;
+    lock.clone().ok_or("没有需要粘贴的密码".into())
+}
+pub fn clear_need_paste_pwd() {
+    let mut lock = NEED_PASTE_PWD.write().unwrap();
     lock.take();
 }

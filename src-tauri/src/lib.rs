@@ -3,13 +3,16 @@ mod utils;
 
 use std::fs;
 use std::sync::Mutex;
-use tauri::{AppHandle, State};
+use enigo::{Enigo, Keyboard, Settings};
+use tauri::{AppHandle, Emitter, Listener, State};
 use tauri_plugin_dialog::{DialogExt, FilePath};
+use tauri_plugin_global_shortcut::{Code, Modifiers, Shortcut, ShortcutState};
 use zeroize::Zeroize;
 
-use storage::{DecryptedEntry, EntryMetaPreview};
-use utils::{VaultError, get_active_master_key, set_active_master_key, clear_active_master_key};
 use crate::storage::{check_all_password_leaks, PasswordLeakCheckResult};
+use storage::{DecryptedEntry, EntryMetaPreview};
+use utils::{clear_active_master_key, get_active_master_key, set_active_master_key, VaultError};
+use utils::{clear_need_paste_pwd, get_need_paste_pwd};
 
 struct KeyFilePathState(Mutex<Option<String>>);
 struct VaultSaltState(Mutex<Option<[u8;16]>>);
@@ -78,7 +81,6 @@ async fn register_vault(
 
     set_active_master_key(&pwd_buf, &new_key, &vault_salt).map_err(|e| e.to_string())?;
 
-    // ✅ 新建金库成功，缓存salt
     let mut salt_guard = salt_state.0.lock().unwrap();
     *salt_guard = Some(vault_salt);
 
@@ -185,7 +187,7 @@ async fn load_password_leaks() -> Result<Vec<PasswordLeakCheckResult>, String> {
     let root = storage::load_or_create_store(&master_key, path_str)
         .map_err(|e| e.to_string())?;
 
-    let results = storage::check_all_password_leaks(&root, &master_key.inner, 4).await;
+    let results = check_all_password_leaks(&root, &master_key.inner, 4).await;
     Ok(results)
 }
 
@@ -300,6 +302,23 @@ fn logout_vault(salt_state: State<'_, VaultSaltState>) {
     guard.take();
 }
 
+#[tauri::command]
+fn set_paste_pwd(entry_id: String) -> Result<(), String> {
+    let master_key = match get_active_master_key() {
+        Ok(key) => key,
+        Err(_) => return Err("金库未解锁".to_string()),
+    };
+    let vault_path = storage::get_vault_storage_path().map_err(|e| e.to_string())?;
+    let path_str = vault_path.to_str().ok_or("无效金库路径")?;
+    let root = storage::load_or_create_store(&master_key, path_str)
+        .map_err(|e| e.to_string())?;
+    let current_entry = storage::get_entry_by_id(&root, master_key.inner.as_slice(), entry_id.as_str()).map_err(|e| e.to_string())?;
+    let pwd = current_entry.password;
+    utils::set_need_paste_pwd(pwd).map_err(|e| e.to_string())?;
+
+    Ok(())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     #[cfg(unix)]
@@ -311,6 +330,54 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .manage(KeyFilePathState(Mutex::new(None)))
         .manage(VaultSaltState(Mutex::new(None)))
+        .setup(|app| {
+            let app_handle = app.handle().clone();
+            #[cfg(desktop)]
+            {
+                app.handle().plugin(
+                    tauri_plugin_global_shortcut::Builder::new()
+                        .with_shortcut(Shortcut::new(Some(Modifiers::CONTROL | Modifiers::ALT), Code::KeyV))?
+                        .with_handler(move |app, shortcut, event| {
+                            if event.state == ShortcutState::Pressed
+                                && shortcut.matches(Modifiers::CONTROL | Modifiers::ALT, Code::KeyV)
+                            {
+                                let _ = app.emit("trigger_password_paste", ());
+                            }
+                        })
+                        .build()
+                )?;
+
+                app_handle.once("trigger_password_paste", |_| {
+                    std::thread::spawn(move || {
+                        let mut pwd = match get_need_paste_pwd() {
+                            Ok(s) => s,
+                            Err(_) => return,
+                        };
+                        if pwd.trim().is_empty() {
+                            pwd.zeroize();
+                            return;
+                        }
+                        let mut enigo = match Enigo::new(&Settings::default()) {
+                            Ok(e) => e,
+                            Err(_) => {
+                                pwd.zeroize();
+                                clear_need_paste_pwd();
+                                return;
+                            }
+                        };
+                        if enigo.text(&pwd).is_err() {
+                            pwd.zeroize();
+                            clear_need_paste_pwd();
+                            return;
+                        }
+                        pwd.zeroize();
+                        clear_need_paste_pwd();
+                        drop(enigo)
+                    });
+                });
+            }
+            Ok(())
+        })
         .invoke_handler(tauri::generate_handler![
             open_key_file_picker,
             clear_stored_key_path,
@@ -328,6 +395,7 @@ pub fn run() {
             save_vault_store,
             clear_active_master_key,
             logout_vault,
+            set_paste_pwd
         ])
         .run(tauri::generate_context!())
         .expect("Tauri应用启动失败");

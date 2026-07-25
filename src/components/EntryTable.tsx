@@ -1,11 +1,13 @@
 import { useState } from 'react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
-import { Pencil, Trash2 } from 'lucide-react';
+import { Copy, Pencil, Trash2 } from 'lucide-react';
 import { usePasswordStore } from '@/store/passwordStore';
 import { EntryFormDialog } from './EntryFormDialog';
 import { EntryDetailDialog } from './EntryDetailDialog';
 import { DeleteConfirmDialog } from './DeleteConfirmDialog';
+import { copyEntry } from '@/api/tauriInvoke.ts';
+import { toast } from 'sonner';
 
 export function EntryTable() {
     const { previewList, passwordLeaks, getEntryDetail, isLoading, currentDetailEntry } = usePasswordStore();
@@ -70,6 +72,21 @@ export function EntryTable() {
                                     </TableCell>
                                     <TableCell className="text-right">
                                         <div className="flex justify-end gap-2">
+                                            <Button
+                                                variant={'outline'}
+                                                size={'icon'}
+                                                onClick={async () => {
+                                                    try {
+                                                        await copyEntry(entry.entry_id);
+                                                        toast.success('复制成功');
+                                                    } catch (err: any) {
+                                                        toast.error(`复制失败：${err}`);
+                                                    }
+                                                }}
+                                                disabled={isLoading}
+                                            >
+                                                <Copy className="h-4 w-4" />
+                                            </Button>
                                             <Button
                                                 variant="outline"
                                                 size="icon"

@@ -483,7 +483,7 @@ fn get_password_sha1_hex(password: &str) -> String {
 static HIBP_CLIENT: Lazy<Client> = Lazy::new(|| {
     Client::builder()
         .timeout(Duration::from_secs(8))
-        .user_agent("YourVault/1.0 (contact@example.com)")
+        .user_agent("Tresor/1.0")
         .build()
         .unwrap()
 });

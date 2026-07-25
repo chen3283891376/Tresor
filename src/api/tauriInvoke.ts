@@ -32,3 +32,5 @@ export const updateEntry = (
     });
 export const deleteEntry = (entry_id: string): Promise<void> => invoke('delete_password_entry', { entryId: entry_id });
 export const forceSaveVault = (): Promise<void> => invoke('save_vault_store');
+
+export const copyEntry = (entry_id: string): Promise<void> => invoke('set_paste_pwd', { entryId: entry_id });
