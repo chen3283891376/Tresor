@@ -115,8 +115,12 @@ export const useVaultStore = create<VaultState>((set, get) => ({
             }
             set({ isUnlocked: true });
             toast.success('金库解锁成功！');
+
+            await clearSavedKeyPath();
+            set({ keyFilePath: null });
         } catch (err: any) {
             toast.error(`解锁失败: ${err}`);
+            set({ isUnlocked: false });
         } finally {
             set({ isLoading: false });
         }
@@ -128,6 +132,9 @@ export const useVaultStore = create<VaultState>((set, get) => ({
             await lockVault();
             set({ isUnlocked: false, vaultMeta: null });
             toast.info('金库已锁定');
+
+            await clearSavedKeyPath();
+            set({ keyFilePath: null });
         } catch (err: any) {
             toast.error(`锁定金库失败: ${err}`);
         } finally {

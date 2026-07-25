@@ -8,7 +8,8 @@ import {
     loadPasswordLeaks,
 } from '../api/tauriInvoke';
 import { toast } from 'sonner';
-import type { EntryMetaPreview, DecryptedEntry, NewEntryParams, UpdateEntryParams, PasswordLeak } from '../types';
+import type { EntryMetaPreview, DecryptedEntry, NewEntryParams, UpdateEntryParams, PasswordLeak } from '@/types';
+import { useVaultStore } from '@/store/vaultStore.ts';
 
 interface PasswordState {
     previewList: EntryMetaPreview[];
@@ -41,6 +42,7 @@ export const usePasswordStore = create<PasswordState>((set, get) => ({
         } catch (err: any) {
             toast.error(`加载密码列表失败: ${err}`);
             set({ previewList: [] });
+            await useVaultStore.getState().lockVault();
         } finally {
             set({ isLoading: false });
         }
@@ -53,6 +55,7 @@ export const usePasswordStore = create<PasswordState>((set, get) => ({
             set({ passwordLeaks: list || [] });
         } catch (err: any) {
             toast.error(`加载密码泄露记录失败: ${err}`);
+            await useVaultStore.getState().lockVault();
             set({ passwordLeaks: [] });
         } finally {
             set({ isLoading: false });
@@ -67,6 +70,7 @@ export const usePasswordStore = create<PasswordState>((set, get) => ({
             await get().refreshPreviewList();
             await get().refreshPasswordLeaks();
         } catch (err: any) {
+            await useVaultStore.getState().lockVault();
             toast.error(`创建密码记录失败: ${err}`);
         } finally {
             set({ isLoading: false });
@@ -79,6 +83,7 @@ export const usePasswordStore = create<PasswordState>((set, get) => ({
             const detail = await getEntryDetail(entryId);
             set({ currentDetailEntry: detail });
         } catch (err: any) {
+            await useVaultStore.getState().lockVault();
             toast.error(`获取密码详情失败: ${err}`);
         } finally {
             set({ isLoading: false });

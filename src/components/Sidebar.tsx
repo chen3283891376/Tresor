@@ -27,7 +27,7 @@ export function Sidebar({ onNewEntry }: SidebarProps) {
 
     useEffect(() => {
         if (isUnlocked) {
-            refreshPreviewList();
+            refreshPreviewList().then();
         }
     }, [isUnlocked, refreshPreviewList]);
 
