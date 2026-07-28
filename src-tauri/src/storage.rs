@@ -129,9 +129,9 @@ pub fn encrypt_store_to_file(root: &VaultStoreRoot, master_key: &VaultMasterKey,
     let mut master_key_bytes = [0u8; 32];
     master_key_bytes.copy_from_slice(master_key.inner.as_slice());
     let cipher = Aes256Gcm::new((&master_key_bytes).into());
-    let nonce_obj = Nonce::from_slice(&nonce);
+    let nonce_obj = Nonce::try_from(&nonce[..]).unwrap();
     let mut encrypted_blob = cipher
-        .encrypt(nonce_obj, plaintext.as_ref())
+        .encrypt(&nonce_obj, plaintext.as_ref())
         .map_err(map_aead_error)?;
 
     let tag_bytes = encrypted_blob.split_off(plaintext.len());
@@ -178,9 +178,9 @@ pub fn decrypt_store_from_file(master_key: &VaultMasterKey, path: &str) -> Resul
     let mut master_key_bytes = [0u8; 32];
     master_key_bytes.copy_from_slice(master_key.inner.as_slice());
     let cipher = Aes256Gcm::new((&master_key_bytes).into());
-    let nonce_obj = Nonce::from_slice(&nonce);
+    let nonce_obj = Nonce::try_from(&nonce[..]).unwrap();
     let mut plaintext = cipher
-        .decrypt(nonce_obj, combined.as_ref())
+        .decrypt(&nonce_obj, combined.as_ref())
         .map_err(|_| VaultError::FileIo(std::io::Error::new(std::io::ErrorKind::InvalidData, "金库文件已被篡改或损坏")))?;
 
     lock_memory(&mut plaintext)?;
@@ -200,9 +200,9 @@ pub fn encrypt_single_plaintext(plain: &[u8], sub_key: &[u8; 32]) -> Result<Ciph
     getrandom::fill(&mut nonce).map_err(map_rand_error)?;
 
     let cipher = Aes256Gcm::new(sub_key.into());
-    let nonce_obj = Nonce::from_slice(&nonce);
+    let nonce_obj = Nonce::try_from(&nonce[..]).unwrap();
     let mut encrypted_blob = cipher
-        .encrypt(nonce_obj, plaintext.as_ref())
+        .encrypt(&nonce_obj, plaintext.as_ref())
         .map_err(map_aead_error)?;
     let tag_bytes = encrypted_blob.split_off(plaintext.len());
 
@@ -235,9 +235,9 @@ pub fn decrypt_single_cipher(wrap: &CipherHexWrap, sub_key: &[u8; 32]) -> Result
     combined.extend_from_slice(&tag_bytes);
 
     let cipher = Aes256Gcm::new(sub_key.into());
-    let nonce_obj = Nonce::from_slice(&nonce_bytes);
+    let nonce_obj = Nonce::try_from(&nonce_bytes[..]).unwrap();
     let mut plaintext = cipher
-        .decrypt(nonce_obj, combined.as_ref())
+        .decrypt(&nonce_obj, combined.as_ref())
         .map_err(|_| VaultError::FileIo(std::io::Error::new(std::io::ErrorKind::InvalidData, "字段密文已被篡改")))?;
 
     lock_memory(&mut plaintext)?;
