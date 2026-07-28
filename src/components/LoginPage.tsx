@@ -73,8 +73,8 @@ export function LoginPage() {
                 <CardContent>
                     <Tabs defaultValue="login" className="mt-2">
                         <TabsList className="grid w-full grid-cols-2">
-                            <TabsTrigger value="login">解锁金库</TabsTrigger>
-                            <TabsTrigger value="register">新建金库</TabsTrigger>
+                            <TabsTrigger value="login">解锁数据库</TabsTrigger>
+                            <TabsTrigger value="register">新建数据库</TabsTrigger>
                         </TabsList>
 
                         <TabsContent value="login" className="space-y-4 mt-4">
@@ -102,7 +102,7 @@ export function LoginPage() {
                             </div>
 
                             <div className="space-y-2">
-                                <Label className="font-medium">金库文件</Label>
+                                <Label className="font-medium">数据库文件</Label>
                                 <div className="flex items-center gap-2 flex-wrap">
                                     <Button
                                         variant="outline"
@@ -110,7 +110,7 @@ export function LoginPage() {
                                         onClick={openVaultFilePicker}
                                         disabled={isLoading}
                                     >
-                                        选择金库文件
+                                        选择数据文件
                                     </Button>
                                     {vaultFilePath && (
                                         <span className="text-sm text-muted-foreground truncate max-w-xs">
@@ -132,7 +132,7 @@ export function LoginPage() {
                             </Field>
 
                             <Button className="w-full" onClick={handleLogin} disabled={isLoading}>
-                                {isLoading ? '解锁中...' : '解锁金库'}
+                                {isLoading ? '解锁中...' : '解锁Tresor'}
                             </Button>
                         </TabsContent>
 
@@ -159,7 +159,7 @@ export function LoginPage() {
                             </Field>
 
                             <div className="space-y-2">
-                                <Label className="font-medium">金库文件 (可选)</Label>
+                                <Label className="font-medium">数据库文件 (可选)</Label>
                                 <div className="flex items-center gap-2 flex-wrap">
                                     <Button
                                         variant="outline"
@@ -167,7 +167,7 @@ export function LoginPage() {
                                         onClick={saveVaultFilePicker}
                                         disabled={isLoading}
                                     >
-                                        设置金库文件位置
+                                        设置数据库文件位置
                                     </Button>
                                     {vaultFilePath && (
                                         <span className="text-sm text-muted-foreground truncate max-w-xs">
@@ -178,7 +178,7 @@ export function LoginPage() {
                             </div>
 
                             <Button className="w-full" onClick={handleRegister} disabled={isLoading}>
-                                {isLoading ? '创建中...' : '创建新金库'}
+                                {isLoading ? '创建中...' : '创建新数据库'}
                             </Button>
                         </TabsContent>
                     </Tabs>
