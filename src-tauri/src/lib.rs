@@ -1,5 +1,6 @@
 mod storage;
 mod utils;
+mod twofa;
 
 use std::fs;
 use std::sync::Mutex;
@@ -10,7 +11,8 @@ use tauri_plugin_global_shortcut::{Code, Modifiers, Shortcut, ShortcutState};
 use zeroize::Zeroize;
 
 use crate::storage::{check_all_password_leaks, PasswordLeakCheckResult};
-use storage::{DecryptedEntry, DecryptedTwoFAEntry, EntryMetaPreview, TwoFAEntryPreview};
+use storage::{DecryptedEntry, EntryMetaPreview};
+use twofa::{DecryptedTwoFAEntry, TwoFAEntryPreview};
 use utils::{clear_active_master_key, get_active_master_key, set_active_master_key, VaultError};
 use utils::{clear_need_paste_pwd, get_need_paste_pwd};
 
@@ -330,7 +332,7 @@ async fn compute_totp_code(entry_id: String) -> Result<(String, u64), String> {
     let vault_path = storage::get_vault_storage_path().map_err(|e| e.to_string())?;
     let root = storage::load_or_create_store(&master_key, vault_path.to_str().unwrap_or_default())
         .map_err(|e| e.to_string())?;
-    storage::get_totp_for_entry(&root, master_key.inner.as_slice(), entry_id.as_str()).map_err(|e| e.to_string())
+    twofa::get_totp_for_entry(&root, master_key.inner.as_slice(), entry_id.as_str()).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -350,7 +352,7 @@ async fn create_two_fa_entry(
     let vault_path = storage::get_vault_storage_path().map_err(|e| e.to_string())?;
     let mut root = storage::load_or_create_store(&master_key, vault_path.to_str().unwrap_or_default())
         .map_err(|e| e.to_string())?;
-    storage::create_two_fa_entry(
+    twofa::create_two_fa_entry(
         &mut root,
         master_key.inner.as_slice(),
         issuer.as_str(),
@@ -371,7 +373,7 @@ async fn load_two_fa_store() -> Result<Vec<TwoFAEntryPreview>, String> {
     let vault_path = storage::get_vault_storage_path().map_err(|e| e.to_string())?;
     let root = storage::load_or_create_store(&master_key, vault_path.to_str().unwrap_or_default())
         .map_err(|e| e.to_string())?;
-    let preview = storage::list_two_fa_entries(&root, master_key.inner.as_slice())
+    let preview = twofa::list_two_fa_entries(&root, master_key.inner.as_slice())
         .map_err(|e| e.to_string())?;
     Ok(preview)
 }
@@ -385,7 +387,7 @@ async fn get_decrypted_two_fa_entry(entry_id: String) -> Result<DecryptedTwoFAEn
     let vault_path = storage::get_vault_storage_path().map_err(|e| e.to_string())?;
     let root = storage::load_or_create_store(&master_key, vault_path.to_str().unwrap_or_default())
         .map_err(|e| e.to_string())?;
-    storage::get_two_fa_entry_by_id(&root, master_key.inner.as_slice(), entry_id.as_str()).map_err(|e| e.to_string())
+    twofa::get_two_fa_entry_by_id(&root, master_key.inner.as_slice(), entry_id.as_str()).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -406,7 +408,7 @@ async fn update_two_fa_entry(
     let vault_path = storage::get_vault_storage_path().map_err(|e| e.to_string())?;
     let mut root = storage::load_or_create_store(&master_key, vault_path.to_str().unwrap_or_default())
         .map_err(|e| e.to_string())?;
-    storage::update_two_fa_entry(
+    twofa::update_two_fa_entry(
         &mut root,
         master_key.inner.as_slice(),
         entry_id.as_str(),
@@ -431,7 +433,7 @@ async fn delete_two_fa_entry(entry_id: String, salt_state: State<'_, VaultSaltSt
     let vault_path = storage::get_vault_storage_path().map_err(|e| e.to_string())?;
     let mut root = storage::load_or_create_store(&master_key, vault_path.to_str().unwrap_or_default())
         .map_err(|e| e.to_string())?;
-    storage::delete_two_fa_entry(&mut root, entry_id.as_str()).map_err(|e| e.to_string())?;
+    twofa::delete_two_fa_entry(&mut root, entry_id.as_str()).map_err(|e| e.to_string())?;
     storage::save_vault_store(&root, &master_key, vault_salt, vault_path.to_str().unwrap_or_default()).map_err(|e| e.to_string())?;
     Ok(())
 }
