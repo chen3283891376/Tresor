@@ -1,4 +1,5 @@
 import { invoke } from '@tauri-apps/api/core';
+import type { TwoFAEntryPreview, DecryptedTwoFAEntry } from '@/types';
 
 // 金库密钥相关
 export const pickVaultKeyFile = (): Promise<boolean> => invoke('open_key_file_picker');
@@ -34,3 +35,27 @@ export const deleteEntry = (entry_id: string): Promise<void> => invoke('delete_p
 export const forceSaveVault = (): Promise<void> => invoke('save_vault_store');
 
 export const copyEntry = (entry_id: string): Promise<void> => invoke('set_paste_pwd', { entryId: entry_id });
+
+// 2FA
+export const createTwoFAEntry = (issuer: string, account: string, secret: string): Promise<void> =>
+    invoke('create_two_fa_entry', { issuer, account, secret });
+export const loadTwoFAStore = (): Promise<TwoFAEntryPreview[]> => invoke('load_two_fa_store');
+export const getTwoFAEntryDetail = (entry_id: string): Promise<DecryptedTwoFAEntry> =>
+    invoke('get_decrypted_two_fa_entry', { entryId: entry_id });
+export const updateTwoFAEntry = (
+    entry_id: string,
+    new_issuer?: string,
+    new_account?: string,
+    new_secret?: string,
+): Promise<void> =>
+    invoke('update_two_fa_entry', {
+        entryId: entry_id,
+        newIssuer: new_issuer,
+        newAccount: new_account,
+        newSecret: new_secret,
+    });
+export const deleteTwoFAEntry = (entry_id: string): Promise<void> =>
+    invoke('delete_two_fa_entry', { entryId: entry_id });
+
+export const computeTotpCode = (entry_id: string): Promise<[string, number]> =>
+    invoke('compute_totp_code', { entryId: entry_id });

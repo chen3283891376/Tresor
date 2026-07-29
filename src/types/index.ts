@@ -39,3 +39,32 @@ export type UpdateEntryParams = {
     url?: string;
     note?: string;
 };
+
+export type TwoFAEntryPreview = {
+    entry_id: string;
+    issuer: string;
+    account: string;
+    created_at: number;
+};
+
+export type DecryptedTwoFAEntry = {
+    entry_id: string;
+    issuer: string;
+    account: string;
+    secret_base32: string;
+    created_at: number;
+    updated_at: number;
+};
+
+export type NewTwoFAParams = {
+    issuer: string;
+    account: string;
+    secret: string;
+};
+
+export type UpdateTwoFAParams = {
+    entry_id: string;
+    issuer?: string;
+    account?: string;
+    secret?: string;
+};

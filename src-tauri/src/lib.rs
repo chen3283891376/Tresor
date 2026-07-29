@@ -10,7 +10,7 @@ use tauri_plugin_global_shortcut::{Code, Modifiers, Shortcut, ShortcutState};
 use zeroize::Zeroize;
 
 use crate::storage::{check_all_password_leaks, PasswordLeakCheckResult};
-use storage::{DecryptedEntry, EntryMetaPreview};
+use storage::{DecryptedEntry, DecryptedTwoFAEntry, EntryMetaPreview, TwoFAEntryPreview};
 use utils::{clear_active_master_key, get_active_master_key, set_active_master_key, VaultError};
 use utils::{clear_need_paste_pwd, get_need_paste_pwd};
 
@@ -319,6 +319,123 @@ fn set_paste_pwd(entry_id: String) -> Result<(), String> {
     Ok(())
 }
 
+// ── 2FA 命令 ──────────────────────────────────────────────────
+
+#[tauri::command]
+async fn compute_totp_code(entry_id: String) -> Result<(String, u64), String> {
+    let master_key = match get_active_master_key() {
+        Ok(key) => key,
+        Err(_) => return Err("金库未解锁".to_string()),
+    };
+    let vault_path = storage::get_vault_storage_path().map_err(|e| e.to_string())?;
+    let root = storage::load_or_create_store(&master_key, vault_path.to_str().unwrap_or_default())
+        .map_err(|e| e.to_string())?;
+    storage::get_totp_for_entry(&root, master_key.inner.as_slice(), entry_id.as_str()).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+async fn create_two_fa_entry(
+    issuer: String,
+    account: String,
+    secret: String,
+    salt_state: State<'_, VaultSaltState>,
+) -> Result<(), String> {
+    let salt_guard = salt_state.0.lock().unwrap();
+    let vault_salt = salt_guard.as_ref().ok_or("未设置盐".to_string())?;
+
+    let master_key = match get_active_master_key() {
+        Ok(key) => key,
+        Err(_) => return Err("金库未解锁".to_string()),
+    };
+    let vault_path = storage::get_vault_storage_path().map_err(|e| e.to_string())?;
+    let mut root = storage::load_or_create_store(&master_key, vault_path.to_str().unwrap_or_default())
+        .map_err(|e| e.to_string())?;
+    storage::create_two_fa_entry(
+        &mut root,
+        master_key.inner.as_slice(),
+        issuer.as_str(),
+        account.as_str(),
+        secret.as_str(),
+    )
+    .map_err(|e| e.to_string())?;
+    storage::save_vault_store(&root, &master_key, vault_salt, vault_path.to_str().unwrap_or_default()).map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+#[tauri::command]
+async fn load_two_fa_store() -> Result<Vec<TwoFAEntryPreview>, String> {
+    let master_key = match get_active_master_key() {
+        Ok(key) => key,
+        Err(_) => return Err("金库未解锁".to_string()),
+    };
+    let vault_path = storage::get_vault_storage_path().map_err(|e| e.to_string())?;
+    let root = storage::load_or_create_store(&master_key, vault_path.to_str().unwrap_or_default())
+        .map_err(|e| e.to_string())?;
+    let preview = storage::list_two_fa_entries(&root, master_key.inner.as_slice())
+        .map_err(|e| e.to_string())?;
+    Ok(preview)
+}
+
+#[tauri::command]
+async fn get_decrypted_two_fa_entry(entry_id: String) -> Result<DecryptedTwoFAEntry, String> {
+    let master_key = match get_active_master_key() {
+        Ok(key) => key,
+        Err(_) => return Err("金库未解锁".to_string()),
+    };
+    let vault_path = storage::get_vault_storage_path().map_err(|e| e.to_string())?;
+    let root = storage::load_or_create_store(&master_key, vault_path.to_str().unwrap_or_default())
+        .map_err(|e| e.to_string())?;
+    storage::get_two_fa_entry_by_id(&root, master_key.inner.as_slice(), entry_id.as_str()).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+async fn update_two_fa_entry(
+    entry_id: String,
+    new_issuer: Option<String>,
+    new_account: Option<String>,
+    new_secret: Option<String>,
+    salt_state: State<'_, VaultSaltState>,
+) -> Result<(), String> {
+    let salt_guard = salt_state.0.lock().unwrap();
+    let vault_salt = salt_guard.as_ref().ok_or("未设置盐".to_string())?;
+
+    let master_key = match get_active_master_key() {
+        Ok(key) => key,
+        Err(_) => return Err("金库未解锁".to_string()),
+    };
+    let vault_path = storage::get_vault_storage_path().map_err(|e| e.to_string())?;
+    let mut root = storage::load_or_create_store(&master_key, vault_path.to_str().unwrap_or_default())
+        .map_err(|e| e.to_string())?;
+    storage::update_two_fa_entry(
+        &mut root,
+        master_key.inner.as_slice(),
+        entry_id.as_str(),
+        new_issuer.as_deref(),
+        new_account.as_deref(),
+        new_secret.as_deref(),
+    )
+    .map_err(|e| e.to_string())?;
+    storage::save_vault_store(&root, &master_key, vault_salt, vault_path.to_str().unwrap_or_default()).map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+#[tauri::command]
+async fn delete_two_fa_entry(entry_id: String, salt_state: State<'_, VaultSaltState>) -> Result<(), String> {
+    let salt_guard = salt_state.0.lock().unwrap();
+    let vault_salt = salt_guard.as_ref().ok_or("未设置盐".to_string())?;
+
+    let master_key = match get_active_master_key() {
+        Ok(key) => key,
+        Err(_) => return Err("金库未解锁".to_string()),
+    };
+    let vault_path = storage::get_vault_storage_path().map_err(|e| e.to_string())?;
+    let mut root = storage::load_or_create_store(&master_key, vault_path.to_str().unwrap_or_default())
+        .map_err(|e| e.to_string())?;
+    storage::delete_two_fa_entry(&mut root, entry_id.as_str()).map_err(|e| e.to_string())?;
+    storage::save_vault_store(&root, &master_key, vault_salt, vault_path.to_str().unwrap_or_default()).map_err(|e| e.to_string())?;
+    Ok(())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     #[cfg(unix)]
@@ -395,7 +512,13 @@ pub fn run() {
             save_vault_store,
             clear_active_master_key,
             logout_vault,
-            set_paste_pwd
+            set_paste_pwd,
+            create_two_fa_entry,
+            load_two_fa_store,
+            get_decrypted_two_fa_entry,
+            update_two_fa_entry,
+            delete_two_fa_entry,
+            compute_totp_code
         ])
         .run(tauri::generate_context!())
         .expect("Tauri应用启动失败");

@@ -12,10 +12,11 @@ import {
     SidebarMenuButton,
 } from '@/components/ui/sidebar';
 import { Button } from '@/components/ui/button';
-import { Plus, Lock, FolderOpen } from 'lucide-react';
+import { Plus, Lock, FolderOpen, KeyRound, Globe } from 'lucide-react';
 import { VaultStatusAlert } from './VaultStatusAlert';
 import { useVaultStore } from '@/store/vaultStore';
 import { usePasswordStore } from '@/store/passwordStore';
+import { usePageStore } from '@/store/pageStore.ts';
 import { ModeToggle } from '@/components/ModeToggle.tsx';
 
 interface SidebarProps {
@@ -25,6 +26,7 @@ interface SidebarProps {
 export function Sidebar({ onNewEntry }: SidebarProps) {
     const { isUnlocked, lockVault, vaultFilePath, openVaultFilePicker, saveVaultFilePicker } = useVaultStore();
     const { refreshPreviewList } = usePasswordStore();
+    const { currentPage, setCurrentPage } = usePageStore();
 
     useEffect(() => {
         if (isUnlocked) {
@@ -55,6 +57,32 @@ export function Sidebar({ onNewEntry }: SidebarProps) {
 
                 {isUnlocked && (
                     <>
+                        <SidebarGroup>
+                            <SidebarGroupLabel>导航</SidebarGroupLabel>
+                            <SidebarGroupContent>
+                                <SidebarMenu>
+                                    <SidebarMenuItem>
+                                        <SidebarMenuButton
+                                            onClick={() => setCurrentPage('passwords')}
+                                            isActive={currentPage === 'passwords'}
+                                        >
+                                            <Globe className="h-4 w-4" />
+                                            <span>密码</span>
+                                        </SidebarMenuButton>
+                                    </SidebarMenuItem>
+                                    <SidebarMenuItem>
+                                        <SidebarMenuButton
+                                            onClick={() => setCurrentPage('2fa')}
+                                            isActive={currentPage === '2fa'}
+                                        >
+                                            <KeyRound className="h-4 w-4" />
+                                            <span>2FA</span>
+                                        </SidebarMenuButton>
+                                    </SidebarMenuItem>
+                                </SidebarMenu>
+                            </SidebarGroupContent>
+                        </SidebarGroup>
+
                         <SidebarGroup>
                             <SidebarGroupLabel>Tresor信息</SidebarGroupLabel>
                             <SidebarGroupContent>
