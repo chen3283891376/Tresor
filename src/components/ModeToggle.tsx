@@ -17,7 +17,7 @@ export function ModeToggle() {
                 render={
                     <Button variant="outline" size="icon" className={'my-auto'}>
                         <Sun className="h-4 w-4 dark:hidden" />
-                        <Moon className="h-4 w-4 light:hidden" />
+                        <Moon className="h-4 w-4 hidden dark:inline-block" />
                         <span className="sr-only">切换主题</span>
                     </Button>
                 }
