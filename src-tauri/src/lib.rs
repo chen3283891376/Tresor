@@ -1,3 +1,4 @@
+mod password_generator;
 mod storage;
 mod utils;
 mod twofa;
@@ -10,6 +11,7 @@ use tauri_plugin_dialog::{DialogExt, FilePath};
 use tauri_plugin_global_shortcut::{Code, Modifiers, Shortcut, ShortcutState};
 use zeroize::Zeroize;
 
+use crate::password_generator::generate_strong_password;
 use crate::storage::{check_all_password_leaks, PasswordLeakCheckResult};
 use storage::{DecryptedEntry, EntryMetaPreview};
 use twofa::{DecryptedTwoFAEntry, TwoFAEntryPreview};
@@ -507,6 +509,7 @@ pub fn run() {
             save_vault_file_picker,
             load_vault_store,
             load_password_leaks,
+            generate_strong_password,
             create_password_entry,
             get_decrypted_entry,
             update_password_entry,

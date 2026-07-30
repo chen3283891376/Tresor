@@ -1,5 +1,5 @@
 import { invoke } from '@tauri-apps/api/core';
-import type { TwoFAEntryPreview, DecryptedTwoFAEntry } from '@/types';
+import type { TwoFAEntryPreview, DecryptedTwoFAEntry, PasswordGeneratorConfig } from '@/types';
 
 // 金库密钥相关
 export const pickVaultKeyFile = (): Promise<boolean> => invoke('open_key_file_picker');
@@ -35,6 +35,10 @@ export const deleteEntry = (entry_id: string): Promise<void> => invoke('delete_p
 export const forceSaveVault = (): Promise<void> => invoke('save_vault_store');
 
 export const copyEntry = (entry_id: string): Promise<void> => invoke('set_paste_pwd', { entryId: entry_id });
+
+// 密码生成
+export const generateStrongPassword = (config: PasswordGeneratorConfig): Promise<string> =>
+    invoke('generate_strong_password', { config });
 
 // 2FA
 export const createTwoFAEntry = (issuer: string, account: string, secret: string): Promise<void> =>

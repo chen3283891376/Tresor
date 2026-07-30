@@ -68,3 +68,13 @@ export type UpdateTwoFAParams = {
     account?: string;
     secret?: string;
 };
+
+export type PasswordGeneratorConfig = {
+    length: number;
+    include_uppercase: boolean;
+    include_lowercase: boolean;
+    include_digits: boolean;
+    include_symbols: boolean;
+    exclude_ambiguous: boolean;
+    custom_symbols?: string;
+};
