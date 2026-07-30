@@ -8,12 +8,13 @@ import {
 } from '@/api/tauriInvoke.ts';
 import { toast } from 'sonner';
 import { useVaultStore } from '@/store/vaultStore.ts';
-import type { TwoFAEntryPreview, DecryptedTwoFAEntry, NewTwoFAParams, UpdateTwoFAParams } from '@/types';
+import type { TwoFAEntryPreview, DecryptedTwoFAEntry, NewTwoFAParams, UpdateTwoFAParams, QrScanResult } from '@/types';
 
 interface TwoFAState {
     twoFAList: TwoFAEntryPreview[];
     currentDetail: DecryptedTwoFAEntry | null;
     isLoading: boolean;
+    pendingScanResult: QrScanResult | null;
     refreshList: () => Promise<void>;
     createEntry: (params: NewTwoFAParams) => Promise<void>;
     getEntryDetail: (entryId: string) => Promise<void>;
@@ -21,14 +22,17 @@ interface TwoFAState {
     deleteEntry: (entryId: string) => Promise<void>;
     clearCurrentDetail: () => void;
     setLoading: (loading: boolean) => void;
+    setPendingScanResult: (result: QrScanResult | null) => void;
 }
 
 export const useTwoFAStore = create<TwoFAState>((set, get) => ({
     twoFAList: [],
     currentDetail: null,
     isLoading: false,
+    pendingScanResult: null,
 
     setLoading: (loading: boolean) => set({ isLoading: loading }),
+    setPendingScanResult: (result: QrScanResult | null) => set({ pendingScanResult: result }),
 
     refreshList: async () => {
         try {

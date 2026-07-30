@@ -8,12 +8,18 @@ import { TwoFAFormDialog } from '@/components/TwoFAFormDialog.tsx';
 
 export const TwoFAPage = () => {
     const { setCurrentPage } = usePageStore();
-    const { twoFAList, refreshList, deleteEntry, isLoading } = useTwoFAStore();
+    const { twoFAList, refreshList, deleteEntry, isLoading, pendingScanResult } = useTwoFAStore();
     const [formOpen, setFormOpen] = useState(false);
 
     useEffect(() => {
         refreshList().then();
     }, [refreshList]);
+
+    useEffect(() => {
+        if (pendingScanResult) {
+            setFormOpen(true);
+        }
+    }, [pendingScanResult]);
 
     const handleDelete = async (entryId: string) => {
         await deleteEntry(entryId);

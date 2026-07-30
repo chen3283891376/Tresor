@@ -64,5 +64,8 @@ export const deleteTwoFAEntry = (entry_id: string): Promise<void> =>
 export const computeTotpCode = (entry_id: string): Promise<[string, number]> =>
     invoke('compute_totp_code', { entryId: entry_id });
 
+export const scanQrFromScreenshot = (): Promise<QrScanResult> =>
+    invoke('scan_qr_from_screenshot');
+
 export const scanQrFromImage = (): Promise<QrScanResult> =>
     invoke('scan_qr_from_image');

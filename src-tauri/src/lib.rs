@@ -12,7 +12,7 @@ use tauri_plugin_global_shortcut::{Code, Modifiers, Shortcut, ShortcutState};
 use zeroize::Zeroize;
 
 use crate::password_generator::generate_strong_password;
-use crate::twofa::scan_qr_from_image;
+use crate::twofa::{scan_qr_from_image, scan_qr_from_screenshot};
 use crate::storage::{check_all_password_leaks, PasswordLeakCheckResult};
 use storage::{DecryptedEntry, EntryMetaPreview};
 use twofa::{DecryptedTwoFAEntry, TwoFAEntryPreview};
@@ -459,11 +459,15 @@ pub fn run() {
                 app.handle().plugin(
                     tauri_plugin_global_shortcut::Builder::new()
                         .with_shortcut(Shortcut::new(Some(Modifiers::CONTROL | Modifiers::ALT), Code::KeyV))?
+                        .with_shortcut(Shortcut::new(Some(Modifiers::CONTROL | Modifiers::ALT), Code::KeyS))?
                         .with_handler(move |app, shortcut, event| {
-                            if event.state == ShortcutState::Pressed
-                                && shortcut.matches(Modifiers::CONTROL | Modifiers::ALT, Code::KeyV)
-                            {
+                            if event.state != ShortcutState::Pressed {
+                                return;
+                            }
+                            if shortcut.matches(Modifiers::CONTROL | Modifiers::ALT, Code::KeyV) {
                                 let _ = app.emit("trigger_password_paste", ());
+                            } else if shortcut.matches(Modifiers::CONTROL | Modifiers::ALT, Code::KeyS) {
+                                let _ = app.emit("trigger_qr_scan", ());
                             }
                         })
                         .build()
@@ -525,6 +529,7 @@ pub fn run() {
             update_two_fa_entry,
             delete_two_fa_entry,
             compute_totp_code,
+            scan_qr_from_screenshot,
             scan_qr_from_image
         ])
         .run(tauri::generate_context!())

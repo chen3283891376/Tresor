@@ -3,6 +3,7 @@ use serde::{Deserialize, Serialize};
 use sha1::Sha1;
 use tauri_plugin_dialog::DialogExt;
 use uuid::Uuid;
+use xcap::Monitor;
 use zeroize::Zeroize;
 
 use crate::storage;
@@ -283,13 +284,10 @@ pub struct QrScanResult {
     pub period: Option<u32>,
 }
 
-/// 从图片文件解码二维码，返回原始文本内容
-fn decode_qr_from_image(path: &str) -> Result<String, String> {
-    let img = image::open(path).map_err(|e| format!("无法读取图片: {}", e))?;
-    let gray = img.to_luma8();
+/// 从灰度图像解码二维码，核心解码逻辑
+fn decode_qr_from_gray(gray: &image::GrayImage) -> Result<String, String> {
     let (w, h) = gray.dimensions();
-
-    let gray_data = gray.into_raw();
+    let gray_data: &[u8] = gray.as_ref();
     let wu = w as usize;
     let mut prepared = rqrr::PreparedImage::prepare_from_greyscale(wu, h as usize, |x, y| {
         gray_data[y * wu + x]
@@ -307,6 +305,29 @@ fn decode_qr_from_image(path: &str) -> Result<String, String> {
     }
 
     Err("二维码解码失败，无法读取内容".to_string())
+}
+
+/// 从 RGBA 图像解码二维码
+fn decode_qr_from_rgba(img: &image::RgbaImage) -> Result<String, String> {
+    let gray = image::imageops::grayscale(img);
+    decode_qr_from_gray(&gray)
+}
+
+/// 从图片文件解码二维码，返回原始文本内容
+fn decode_qr_from_file(path: &str) -> Result<String, String> {
+    let img = image::open(path).map_err(|e| format!("无法读取图片: {}", e))?;
+    let gray = img.to_luma8();
+    decode_qr_from_gray(&gray)
+}
+
+/// 截屏并解码二维码，返回原始文本内容
+fn decode_qr_from_screen() -> Result<String, String> {
+    let monitors = Monitor::all().map_err(|e| format!("无法获取屏幕信息: {}", e))?;
+    let monitor = monitors.first().ok_or("未检测到显示器")?;
+    let img = monitor
+        .capture_image()
+        .map_err(|e| format!("截图失败: {}", e))?;
+    decode_qr_from_rgba(&img)
 }
 
 /// 解析 otpauth:// URI，提取密钥和账户信息
@@ -361,6 +382,13 @@ fn parse_otpauth_uri(uri_str: &str) -> Result<QrScanResult, String> {
     })
 }
 
+/// Tauri 命令：截取当前屏幕 → 解码 QR → 解析 otpauth URI → 返回结果
+#[tauri::command]
+pub async fn scan_qr_from_screenshot() -> Result<QrScanResult, String> {
+    let raw_text = decode_qr_from_screen()?;
+    parse_otpauth_uri(&raw_text)
+}
+
 /// Tauri 命令：弹出文件选择器选取二维码图片 → 解码 → 解析 otpauth URI → 返回结果
 #[tauri::command]
 pub async fn scan_qr_from_image(app: tauri::AppHandle) -> Result<QrScanResult, String> {
@@ -381,6 +409,6 @@ pub async fn scan_qr_from_image(app: tauri::AppHandle) -> Result<QrScanResult, S
         .to_string_lossy()
         .to_string();
 
-    let raw_text = decode_qr_from_image(&full_path)?;
+    let raw_text = decode_qr_from_file(&full_path)?;
     parse_otpauth_uri(&raw_text)
 }
