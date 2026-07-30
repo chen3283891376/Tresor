@@ -12,7 +12,7 @@ import {
     SidebarMenuButton,
 } from '@/components/ui/sidebar';
 import { Button } from '@/components/ui/button';
-import { Plus, Lock, FolderOpen, KeyRound, Globe } from 'lucide-react';
+import { Plus, Lock, FolderOpen, KeyRound, Globe, Settings } from 'lucide-react';
 import { VaultStatusAlert } from './VaultStatusAlert';
 import { useVaultStore } from '@/store/vaultStore';
 import { usePasswordStore } from '@/store/passwordStore';
@@ -77,6 +77,15 @@ export function Sidebar({ onNewEntry }: SidebarProps) {
                                         >
                                             <KeyRound className="h-4 w-4" />
                                             <span>2FA</span>
+                                        </SidebarMenuButton>
+                                    </SidebarMenuItem>
+                                    <SidebarMenuItem>
+                                        <SidebarMenuButton
+                                            onClick={() => setCurrentPage('settings')}
+                                            isActive={currentPage === 'settings'}
+                                        >
+                                            <Settings className="h-4 w-4" />
+                                            <span>设置</span>
                                         </SidebarMenuButton>
                                     </SidebarMenuItem>
                                 </SidebarMenu>

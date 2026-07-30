@@ -1,14 +1,14 @@
 mod password_generator;
+mod shortcut_config;
 mod storage;
-mod utils;
 mod twofa;
+mod utils;
 
 use std::fs;
 use std::sync::Mutex;
 use enigo::{Enigo, Keyboard, Settings};
-use tauri::{AppHandle, Emitter, Listener, State};
+use tauri::{AppHandle, Listener, State};
 use tauri_plugin_dialog::{DialogExt, FilePath};
-use tauri_plugin_global_shortcut::{Code, Modifiers, Shortcut, ShortcutState};
 use zeroize::Zeroize;
 
 use crate::password_generator::generate_strong_password;
@@ -457,23 +457,13 @@ pub fn run() {
             #[cfg(desktop)]
             {
                 app.handle().plugin(
-                    tauri_plugin_global_shortcut::Builder::new()
-                        .with_shortcut(Shortcut::new(Some(Modifiers::CONTROL | Modifiers::ALT), Code::KeyV))?
-                        .with_shortcut(Shortcut::new(Some(Modifiers::CONTROL | Modifiers::ALT), Code::KeyS))?
-                        .with_handler(move |app, shortcut, event| {
-                            if event.state != ShortcutState::Pressed {
-                                return;
-                            }
-                            if shortcut.matches(Modifiers::CONTROL | Modifiers::ALT, Code::KeyV) {
-                                let _ = app.emit("trigger_password_paste", ());
-                            } else if shortcut.matches(Modifiers::CONTROL | Modifiers::ALT, Code::KeyS) {
-                                let _ = app.emit("trigger_qr_scan", ());
-                            }
-                        })
-                        .build()
+                    tauri_plugin_global_shortcut::Builder::new().build()
                 )?;
 
-                app_handle.once("trigger_password_paste", |_| {
+                let config = shortcut_config::load(app.handle());
+                shortcut_config::register_all(app.handle(), &config)?;
+
+                app_handle.listen("trigger_password_paste", |_| {
                     std::thread::spawn(move || {
                         let mut pwd = match get_need_paste_pwd() {
                             Ok(s) => s,
@@ -530,7 +520,10 @@ pub fn run() {
             delete_two_fa_entry,
             compute_totp_code,
             scan_qr_from_screenshot,
-            scan_qr_from_image
+            scan_qr_from_image,
+            shortcut_config::get_shortcut_config,
+            shortcut_config::save_and_apply_shortcut_config,
+            shortcut_config::check_shortcut_available
         ])
         .run(tauri::generate_context!())
         .expect("Tauri应用启动失败");

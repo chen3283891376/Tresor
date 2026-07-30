@@ -9,6 +9,7 @@ import { useTwoFAStore } from '@/store/twoFAStore.ts';
 import { scanQrFromScreenshot } from '@/api/tauriInvoke.ts';
 import { PasswordPage } from '@/pages/PasswordPage.tsx';
 import { TwoFAPage } from '@/pages/2FAPage.tsx';
+import { SettingsPage } from '@/pages/SettingsPage.tsx';
 
 export function VaultUnlockedView() {
     const [newEntryOpen, setNewEntryOpen] = useState(false);
@@ -47,6 +48,8 @@ export function VaultUnlockedView() {
                             return <PasswordPage setNewEntryOpen={setNewEntryOpen} />;
                         case '2fa':
                             return <TwoFAPage />;
+                        case 'settings':
+                            return <SettingsPage />;
                         default:
                             return <PasswordPage setNewEntryOpen={setNewEntryOpen} />;
                     }

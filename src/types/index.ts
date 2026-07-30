@@ -78,6 +78,8 @@ export type QrScanResult = {
     period?: number;
 };
 
+export type ShortcutConfig = Record<string, string>;
+
 export type PasswordGeneratorConfig = {
     length: number;
     include_uppercase: boolean;

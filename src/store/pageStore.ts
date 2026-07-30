@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 
-type page = 'passwords' | '2fa';
+type page = 'passwords' | '2fa' | 'settings';
 interface pageState {
     currentPage: page;
     setCurrentPage: (newPage: page) => void;

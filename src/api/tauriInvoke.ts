@@ -1,5 +1,5 @@
 import { invoke } from '@tauri-apps/api/core';
-import type { TwoFAEntryPreview, DecryptedTwoFAEntry, PasswordGeneratorConfig, QrScanResult } from '@/types';
+import type { TwoFAEntryPreview, DecryptedTwoFAEntry, PasswordGeneratorConfig, QrScanResult, ShortcutConfig } from '@/types';
 
 // 金库密钥相关
 export const pickVaultKeyFile = (): Promise<boolean> => invoke('open_key_file_picker');
@@ -69,3 +69,13 @@ export const scanQrFromScreenshot = (): Promise<QrScanResult> =>
 
 export const scanQrFromImage = (): Promise<QrScanResult> =>
     invoke('scan_qr_from_image');
+
+// 快捷键设置
+export const getShortcutConfig = (): Promise<ShortcutConfig> =>
+    invoke('get_shortcut_config');
+
+export const saveAndApplyShortcutConfig = (config: ShortcutConfig): Promise<void> =>
+    invoke('save_and_apply_shortcut_config', { config });
+
+export const checkShortcutAvailable = (shortcutStr: string): Promise<boolean> =>
+    invoke('check_shortcut_available', { shortcutStr });
