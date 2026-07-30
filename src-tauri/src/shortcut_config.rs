@@ -185,8 +185,7 @@ pub fn check_shortcut_available(shortcut_str: String) -> Result<bool, String> {
     let mods = shortcut.mods;
     let code = shortcut.key;
 
-    #[cfg(windows)]
-    {
+    if cfg!(windows) {
         use winapi::shared::minwindef::FALSE;
         use winapi::um::winuser::{RegisterHotKey, UnregisterHotKey};
         let mod_flags = convert_modifiers_to_winapi(mods);
@@ -195,13 +194,10 @@ pub fn check_shortcut_available(shortcut_str: String) -> Result<bool, String> {
             None => return Ok(true),
         };
         let result = unsafe { RegisterHotKey(std::ptr::null_mut(), 0xFFFF, mod_flags, vk) };
-        if result == FALSE {
-            return Ok(false);
-        }
+        let occupied = result == FALSE;
         unsafe { UnregisterHotKey(std::ptr::null_mut(), 0xFFFF) };
+        Ok(!occupied)
+    } else {
         Ok(true)
     }
-
-    #[cfg(not(windows))]
-    Ok(true)
 }
