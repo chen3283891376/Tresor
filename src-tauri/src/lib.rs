@@ -12,6 +12,7 @@ use tauri_plugin_global_shortcut::{Code, Modifiers, Shortcut, ShortcutState};
 use zeroize::Zeroize;
 
 use crate::password_generator::generate_strong_password;
+use crate::twofa::scan_qr_from_image;
 use crate::storage::{check_all_password_leaks, PasswordLeakCheckResult};
 use storage::{DecryptedEntry, EntryMetaPreview};
 use twofa::{DecryptedTwoFAEntry, TwoFAEntryPreview};
@@ -523,7 +524,8 @@ pub fn run() {
             get_decrypted_two_fa_entry,
             update_two_fa_entry,
             delete_two_fa_entry,
-            compute_totp_code
+            compute_totp_code,
+            scan_qr_from_image
         ])
         .run(tauri::generate_context!())
         .expect("Tauri应用启动失败");

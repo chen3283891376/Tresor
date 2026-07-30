@@ -69,6 +69,15 @@ export type UpdateTwoFAParams = {
     secret?: string;
 };
 
+export type QrScanResult = {
+    secret: string;
+    issuer: string;
+    account: string;
+    algorithm?: string;
+    digits?: number;
+    period?: number;
+};
+
 export type PasswordGeneratorConfig = {
     length: number;
     include_uppercase: boolean;

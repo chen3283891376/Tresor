@@ -1,5 +1,5 @@
 import { invoke } from '@tauri-apps/api/core';
-import type { TwoFAEntryPreview, DecryptedTwoFAEntry, PasswordGeneratorConfig } from '@/types';
+import type { TwoFAEntryPreview, DecryptedTwoFAEntry, PasswordGeneratorConfig, QrScanResult } from '@/types';
 
 // 金库密钥相关
 export const pickVaultKeyFile = (): Promise<boolean> => invoke('open_key_file_picker');
@@ -63,3 +63,6 @@ export const deleteTwoFAEntry = (entry_id: string): Promise<void> =>
 
 export const computeTotpCode = (entry_id: string): Promise<[string, number]> =>
     invoke('compute_totp_code', { entryId: entry_id });
+
+export const scanQrFromImage = (): Promise<QrScanResult> =>
+    invoke('scan_qr_from_image');

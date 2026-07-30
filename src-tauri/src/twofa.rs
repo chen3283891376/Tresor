@@ -1,6 +1,7 @@
 use hmac::{Hmac, Mac};
 use serde::{Deserialize, Serialize};
 use sha1::Sha1;
+use tauri_plugin_dialog::DialogExt;
 use uuid::Uuid;
 use zeroize::Zeroize;
 
@@ -267,4 +268,119 @@ pub fn get_totp_for_entry(root: &storage::VaultStoreRoot, master_key: &[u8], ent
     let code = compute_totp_code(&secret, now, 6, period)?;
 
     Ok((code, time_remaining))
+}
+
+// ── 二维码扫描 ──────────────────────────────────────────────────
+
+/// 二维码扫描结果
+#[derive(Debug, Serialize)]
+pub struct QrScanResult {
+    pub secret: String,
+    pub issuer: String,
+    pub account: String,
+    pub algorithm: Option<String>,
+    pub digits: Option<u32>,
+    pub period: Option<u32>,
+}
+
+/// 从图片文件解码二维码，返回原始文本内容
+fn decode_qr_from_image(path: &str) -> Result<String, String> {
+    let img = image::open(path).map_err(|e| format!("无法读取图片: {}", e))?;
+    let gray = img.to_luma8();
+    let (w, h) = gray.dimensions();
+
+    let gray_data = gray.into_raw();
+    let wu = w as usize;
+    let mut prepared = rqrr::PreparedImage::prepare_from_greyscale(wu, h as usize, |x, y| {
+        gray_data[y * wu + x]
+    });
+    let grids = prepared.detect_grids();
+
+    if grids.is_empty() {
+        return Err("未检测到二维码".to_string());
+    }
+
+    for grid in &grids {
+        if let Ok((_, content)) = grid.decode() {
+            return Ok(content);
+        }
+    }
+
+    Err("二维码解码失败，无法读取内容".to_string())
+}
+
+/// 解析 otpauth:// URI，提取密钥和账户信息
+fn parse_otpauth_uri(uri_str: &str) -> Result<QrScanResult, String> {
+    let url = url::Url::parse(uri_str).map_err(|e| format!("无效URI: {}", e))?;
+
+    if url.scheme() != "otpauth" {
+        return Err("不是有效的 otpauth:// URI".to_string());
+    }
+
+    let host = url.host_str().ok_or("缺少协议类型")?;
+    if host != "totp" && host != "hotp" {
+        return Err(format!("不支持的2FA类型: {}", host));
+    }
+
+    let path = url.path().trim_start_matches('/');
+
+    let query: std::collections::HashMap<_, _> = url.query_pairs().into_owned().collect();
+
+    let secret = query
+        .get("secret")
+        .cloned()
+        .ok_or("缺少 secret 参数")?;
+
+    let issuer_param = query.get("issuer").cloned();
+
+    let algorithm = query.get("algorithm").cloned();
+    let digits = query
+        .get("digits")
+        .and_then(|v| v.parse::<u32>().ok());
+    let period = query
+        .get("period")
+        .and_then(|v| v.parse::<u32>().ok());
+
+    let (issuer, account) = if let Some(colon_idx) = path.find(':') {
+        let i = &path[..colon_idx];
+        let a = &path[colon_idx + 1..];
+        (Some(i.to_string()), a.to_string())
+    } else {
+        (None, path.to_string())
+    };
+
+    let issuer = issuer.or(issuer_param).unwrap_or_default();
+
+    Ok(QrScanResult {
+        secret,
+        issuer,
+        account,
+        algorithm,
+        digits,
+        period,
+    })
+}
+
+/// Tauri 命令：弹出文件选择器选取二维码图片 → 解码 → 解析 otpauth URI → 返回结果
+#[tauri::command]
+pub async fn scan_qr_from_image(app: tauri::AppHandle) -> Result<QrScanResult, String> {
+    let file_opt: Option<tauri_plugin_dialog::FilePath> = app
+        .dialog()
+        .file()
+        .add_filter("二维码图片", &["png", "jpg", "jpeg"])
+        .blocking_pick_file();
+
+    let file_path = match file_opt {
+        Some(fp) => fp,
+        None => return Err("未选择图片".to_string()),
+    };
+
+    let full_path = file_path
+        .as_path()
+        .ok_or("无法获取文件路径".to_string())?
+        .to_string_lossy()
+        .to_string();
+
+    let raw_text = decode_qr_from_image(&full_path)?;
+    parse_otpauth_uri(&raw_text)
 }

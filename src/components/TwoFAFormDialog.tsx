@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useTwoFAStore } from '@/store/twoFAStore.ts';
 import { toast } from 'sonner';
+import { scanQrFromImage } from '@/api/tauriInvoke.ts';
 
 interface TwoFAFormDialogProps {
     open: boolean;
@@ -16,6 +17,22 @@ export function TwoFAFormDialog({ open, onOpenChange }: TwoFAFormDialogProps) {
     const [issuer, setIssuer] = useState('');
     const [account, setAccount] = useState('');
     const [secret, setSecret] = useState('');
+    const [scanning, setScanning] = useState(false);
+
+    const handleScan = async () => {
+        setScanning(true);
+        try {
+            const result = await scanQrFromImage();
+            setIssuer(result.issuer);
+            setAccount(result.account);
+            setSecret(result.secret);
+            toast.success('二维码扫描成功');
+        } catch (err) {
+            toast.error(typeof err === 'string' ? err : '二维码扫描失败');
+        } finally {
+            setScanning(false);
+        }
+    };
 
     const handleClose = () => {
         setIssuer('');
@@ -64,6 +81,18 @@ export function TwoFAFormDialog({ open, onOpenChange }: TwoFAFormDialogProps) {
                             placeholder="例如: user@example.com"
                             disabled={isLoading}
                         />
+                    </div>
+                    <div className="flex items-center gap-2 pt-2">
+                        <div className="h-px flex-1 bg-border" />
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={handleScan}
+                            disabled={scanning}
+                        >
+                            {scanning ? '扫描中...' : '扫描二维码'}
+                        </Button>
+                        <div className="h-px flex-1 bg-border" />
                     </div>
                     <div className="space-y-2">
                         <Label htmlFor="secret">密钥 (Base32)</Label>
